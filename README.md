@@ -1,64 +1,45 @@
-# sse.js: a server-sent events implementation for node.js #
+# sse.js
 
-The HTML5 Server-Sent events specification is introduced "to enable servers to push data to Web pages over HTTP or using dedicated server-push protocols".
+### Forked from [@einaros/sse.js](https://github.com/einaros/sse.js)
 
-The spec can be found [here](https://html.spec.whatwg.org/multipage/comms.html#server-sent-events).
+The base module set up its own http listeners. This is a simplified version that does not set up its own listeners. Express middleware can be written to invoke the `handleRequest` method.
 
-## Usage ##
+---
 
-### Installing ###
+### Example Usage
 
-`npm install sse`
+The purpose of creating this fork is that the base module creates its own middleware and cannot be used easily with express, especially in conjunction with other express middleware like `express-session`. Session data from `express-session` can now be accessed 
 
-### Basic server ###
+Here is an example usage of sse.js as middleware.
 
-```js
-var SSE = require('sse')
-  , http = require('http');
+`server.js`
 
-var server = http.createServer(function(req, res) {
-  res.writeHead(200, {'Content-Type': 'text/plain'});
-  res.end('okay');
-});
+    // set up express and express-session
+    const express = require('express');
+    const app = express();
+    const expressSession = require('express-session');
+    app.use(require('express-session')({ /* express-session options */ }));
+    app.listen(8080, _ => {});
 
-server.listen(8080, '127.0.0.1', function() {
-  var sse = new SSE(server);
-  sse.on('connection', function(client) {
-    client.send('hi there!');
-  });
-});
-```
+    // sse
+    const sse = require('sse')();
 
-Client code for the above server:
+    // now you can write express middleware for sse.js!
+    // this sends express data
+    app.use((req, res, next) => {
+      if(req.path === '/sse') {
 
-```js
-var es = new EventSource("/sse");
-es.onmessage = function (event) {
-  console.log(event.data);
-};
-```
+        // note that handleRequest's third param is now for data that will be assigned to the `data` property of client
+        sseServer.handleRequest(req, res, req.session);
+      } else {
+        next();
+      }
+    });
 
-## License ##
+    // note that sseServer doesn't require any params now
+    let sseServer = new sse();
+    sseServer.on('connection', client => {
 
-(The MIT License)
-
-Copyright (c) 2011 Einar Otto Stangvik &lt;einaros@gmail.com&gt;
-
-Permission is hereby granted, free of charge, to any person obtaining
-a copy of this software and associated documentation files (the
-'Software'), to deal in the Software without restriction, including
-without limitation the rights to use, copy, modify, merge, publish,
-distribute, sublicense, and/or sell copies of the Software, and to
-permit persons to whom the Software is furnished to do so, subject to
-the following conditions:
-
-The above copyright notice and this permission notice shall be
-included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED 'AS IS', WITHOUT WARRANTY OF ANY KIND,
-EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+      // you can access client details now! woohoo!
+      console.log('express session id: ' + client.data.id);
+    });
